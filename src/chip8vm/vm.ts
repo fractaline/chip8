@@ -39,6 +39,10 @@ export class Chip8VM {
         this.keys[key] = 1;
     }
 
+    handleKeyDepress(key: number) {
+        this.keys[key] = 0;
+    }
+
     enableBuzzer() {
         this.buzzerEnabled = 1;
     }
@@ -59,7 +63,7 @@ export class Chip8VM {
 
     setRegister(index: number, value: number) {
         if (index < 0 || index > 16) throw new Error('Invalid register index ' + index)
-        if (value < 0 || value > 255) throw new Error('Invalid register ' + index + ' value: ' + value);
+        if (value > 255) value-=256;
 
         this.registers[index] = value;
     }
@@ -80,34 +84,32 @@ export class Chip8VM {
         return opcode;
     }
 
-    executeProgram() {
-        while (true) {
-            const opcode = this.getNextOpcode();
+    step(): void{
+        const opcode = this.getNextOpcode();
 
-            if(opcode === 0x0000){
-                return;
+        if (opcode === 0x0000) {
+            return;
+        }
+
+        this.executeOpcode(opcode);
+
+        if (this.delayTimer > 0) {
+            this.delayTimer--;
+        }
+
+        if (this.soundTimer > 0) {
+            this.soundTimer--;
+            if (this.soundTimer === 0) {
+                this.disableBuzzer();
             }
-
-            this.executeOpcode(opcode);
-
-            if (this.delayTimer > 0) {
-                this.delayTimer--;
-            }
-    
-            if (this.soundTimer > 0) {
-                this.soundTimer--;
-                if (this.soundTimer === 0) {
-                    this.disableBuzzer();
-                }
-                else {
-                    this.enableBuzzer();
-                }
+            else {
+                this.enableBuzzer();
             }
         }
     }
 
     executeOpcode(opcode: number) {
-        let { firstNibble, secondNibble, thirdNibble, fourthNibble, nn, nnn} = this.decodeOpcode(opcode)
+        let { firstNibble, secondNibble, thirdNibble, fourthNibble, nn, nnn } = this.decodeOpcode(opcode)
         let decodedOpcode = opcode;
         switch (firstNibble) {
             case 0x0:
@@ -195,11 +197,11 @@ export class Chip8VM {
         this.display.fill(0);
     }
 
-    jump_nnn(nnn:number): void {
+    jump_nnn(nnn: number): void {
         this.programCounter = nnn;
     }
 
-    jump_v0_nnn(nnn:number): void {
+    jump_v0_nnn(nnn: number): void {
         this.programCounter = nnn + this.getRegister(0);
     }
 
@@ -232,19 +234,19 @@ export class Chip8VM {
         }
     }
 
-    sne_vx_nn(secondNibble:number, nn:number): void {
+    sne_vx_nn(secondNibble: number, nn: number): void {
         if (this.getRegister(secondNibble) !== nn) {
             this.programCounter += 2;
         }
     }
 
-    sne_vx_vy(secondNibble: number, thirdNibble:number): void {
+    sne_vx_vy(secondNibble: number, thirdNibble: number): void {
         if (this.getRegister(secondNibble) !== this.getRegister(thirdNibble)) {
             this.programCounter += 2;
         }
     }
 
-    se_vx_vy(secondNibble: number, thirdNibble:number): void {
+    se_vx_vy(secondNibble: number, thirdNibble: number): void {
         if (this.getRegister(secondNibble) === this.getRegister(thirdNibble)) {
             this.programCounter += 2;
         }
@@ -254,11 +256,11 @@ export class Chip8VM {
         this.setRegister(secondNibble, this.delayTimer);
     }
 
-    load_vx_vy(secondNibble: number, thirdNibble:number): void {
+    load_vx_vy(secondNibble: number, thirdNibble: number): void {
         this.setRegister(secondNibble, this.getRegister(thirdNibble));
     }
 
-    load_vx_nn(secondNibble: number, nn:number): void {
+    load_vx_nn(secondNibble: number, nn: number): void {
         this.setRegister(secondNibble, nn);
     }
 
@@ -312,23 +314,23 @@ export class Chip8VM {
         }
     }
 
-    and_vx_vy(secondNibble: number, thirdNibble:number): void {
+    and_vx_vy(secondNibble: number, thirdNibble: number): void {
         this.setRegister(secondNibble, this.getRegister(secondNibble) & this.getRegister(thirdNibble));
     }
 
-    or_vx_vy(secondNibble: number, thirdNibble:number): void {
+    or_vx_vy(secondNibble: number, thirdNibble: number): void {
         this.setRegister(secondNibble, this.getRegister(secondNibble) | this.getRegister(thirdNibble));
-    }   
+    }
 
-    xor_vx_vy(secondNibble: number, thirdNibble:number): void {
+    xor_vx_vy(secondNibble: number, thirdNibble: number): void {
         this.setRegister(secondNibble, this.getRegister(secondNibble) ^ this.getRegister(thirdNibble));
     }
 
-    add_vx_nn(secondNibble: number, nn:number): void {
+    add_vx_nn(secondNibble: number, nn: number): void {
         this.setRegister(secondNibble, this.getRegister(secondNibble) + nn);
     }
 
-    add_vx_vy(secondNibble: number, thirdNibble:number): void {
+    add_vx_vy(secondNibble: number, thirdNibble: number): void {
         this.setRegister(secondNibble, this.getRegister(secondNibble) + this.getRegister(thirdNibble));
     }
 
@@ -340,8 +342,8 @@ export class Chip8VM {
         this.indexRegister += registerValue;
     }
 
-    sub_vx_vy(secondNibble: number, thirdNibble:number): void {
-        if(this.getRegister(secondNibble) > this.getRegister(thirdNibble)){
+    sub_vx_vy(secondNibble: number, thirdNibble: number): void {
+        if (this.getRegister(secondNibble) > this.getRegister(thirdNibble)) {
             this.setRegister(0xF, 1);
         }
         else {
@@ -351,8 +353,8 @@ export class Chip8VM {
         this.setRegister(secondNibble, this.getRegister(secondNibble) - this.getRegister(thirdNibble));
     }
 
-    subn_vx_vy(secondNibble: number, thirdNibble:number): void {
-        if(this.getRegister(thirdNibble) > this.getRegister(secondNibble)){
+    subn_vx_vy(secondNibble: number, thirdNibble: number): void {
+        if (this.getRegister(thirdNibble) > this.getRegister(secondNibble)) {
             this.setRegister(0xF, 1);
         }
         else {
@@ -372,11 +374,11 @@ export class Chip8VM {
         this.setRegister(secondNibble, this.getRegister(secondNibble) >> 1);
     }
 
-    random_vx_nn(secondNibble: number, nn:number): void {
+    random_vx_nn(secondNibble: number, nn: number): void {
         this.setRegister(secondNibble, Math.floor(Math.random() * 256) & nn);
     }
 
-    draw_vx_vy_n(secondNibble: number, thirdNibble:number, fourthNibble:number): void {
+    draw_vx_vy_n(secondNibble: number, thirdNibble: number, fourthNibble: number): void {
         const x = this.getRegister(secondNibble);
         const y = this.getRegister(thirdNibble);
         const sprite = this.ram.slice(this.indexRegister, this.indexRegister + fourthNibble);
@@ -385,15 +387,15 @@ export class Chip8VM {
     }
 
     drawPixel(x: number, y: number, value: number): boolean {
-        if (x < 0 || x > 63) throw new Error('Invalid x coordinate ' + x);
-        if (y < 0 || y > 31) throw new Error('Invalid y coordinate ' + y);
+        if (x < 0 || x > 63) return false;
+        if (y < 0 || y > 31) return false;
         if (value < 0 || value > 1) throw new Error('Invalid pixel value ' + value);
 
         const index = x + (y * 64);
-        const oldValue = this.display[index];
-        this.display[index] = oldValue ^ value;
+        const collision = this.display[index] == 1 && value == 1;
+        this.display[index] ^= value;
 
-        return oldValue === 1 && this.display[index] === 0;
+        return collision;
     }
 
     drawSprite(x: number, y: number, sprite: Uint8Array): boolean {

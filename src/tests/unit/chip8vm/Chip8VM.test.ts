@@ -298,7 +298,7 @@ describe('Chip8VM', () => {
         expect(vm.getRegister(0xF)).toBe(0);
     });
 
-    it('should exedcute the draw_vx_vy_n command correctly for one row and set the collision flag', () => {
+    it('should execute the draw_vx_vy_n command correctly for one row and set the collision flag', () => {
         const vm = new Chip8VM();
         vm.registers[0] = 0x00;
         vm.registers[1] = 0x00;
@@ -308,7 +308,7 @@ describe('Chip8VM', () => {
         vm.display[5] = 1;
         vm.display[7] = 1;
         vm.executeOpcode(0xD012);
-        for (let i = 1; i <= 8; i += 2) {
+        for (let i = 1; i <= 8; i++) {
             expect(vm.display[i]).toBe(0);
         }
         expect(vm.getRegister(0xF)).toBe(1);
@@ -330,10 +330,9 @@ describe('Chip8VM', () => {
         const vm = new Chip8VM();
         const rom = new Uint8Array([0x60, 0x02]);
         vm.loadRom(rom);
-        console.log(vm.ram.slice(0x200, 0x204));
         vm.delayTimer = 0x01;
         vm.soundTimer = 0x01;
-        vm.executeProgram();
+        vm.step();
         expect(vm.registers[0]).toBe(0x02);
         expect(vm.delayTimer).toBe(0);
         expect(vm.soundTimer).toBe(0);

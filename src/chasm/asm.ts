@@ -1,17 +1,10 @@
-import { Uint8 } from "../chip8vm/Uint8";
-import { RegisterIndex } from "./RegisterIndex";
-
-class Chip8Assembler { 
+export default class Chip8Assembler {
     opcodeLookup: { [key: string]: number } = {
         'CLS': 0x00E0,
         'RET': 0x00EE,
-        'SYS': 0x0000,
-        'JMP': 0x1000,
         'CALL': 0x2000,
-        'SE': 0x3000,
         'SNE': 0x4000,
         'LD': 0x6000,
-        'ADD': 0x7000,
         'OR': 0x8001,
         'AND': 0x8002,
         'XOR': 0x8003,
@@ -23,62 +16,149 @@ class Chip8Assembler {
         'DRW': 0xD000,
         'SKP': 0xE09E,
         'SKNP': 0xE0A1,
-        'LD_I': 0xA000,
-        'LD_DT': 0xF007,
-        'LD_K': 0xF00A,
-        'LD_ST': 0xF018,
-        'ADD_I': 0xF01E,
-        'LD_F': 0xF029,
-        'LD_B': 0xF033,
-        'LD_Ix': 0xF055,
-        'LD_xI': 0xF065,
     };
 
-    opcode(tokens: string[]): Uint8 {
-        const opcode = new Uint8(this.opcodeLookup[tokens[0]] || 0x0000);
+    opcode(tokens: string[]): number {
+        const opcodeString = tokens[0];
+        let opcode = 0x0000;
+
+        if (!this.opcodeLookup[opcodeString]) {
+            const parseTrees: { [key: string]: { [key: number]: string[] } } = {
+                'SE': { 0x5000: ['register', 'register'], 0x3000: ['register', 'nn'] },
+                'SNE': { 0x4000: ['register', 'nn'], 0x9000: ['register', 'register'] },
+                // 'LD': [['register', 'nn'], ['register', 'register'], ['I', 'register'], ['DT', 'register'], ['ST', 'register'], ['F', 'register'], ['B', 'register'], ['I', 'register'], ['xI', 'register'], ['Ix', 'register'], ['I', 'nnn'], ['I', 'register']],
+                'ADD': { 0x7004: ['register', 'nn'], 0x8004: ['register', 'nn'], 0xF01E: ['I', 'register'] },
+                'JMP': { 0x1000: ['nnn'], 0xB000: ['V0', 'nnn'] },
+            };
+
+
+            for (const opcodeKey in parseTrees[opcodeString]) {
+                const parseTree = parseTrees[opcodeString][opcodeKey];
+
+                if (parseTree.length === (tokens.length - 1)) {
+                    let i = 1;
+                    for (const tokenType of parseTree) {
+                        if (tokenType === 'register') {
+                            // Validate a well formed token as a register V0-VF
+                            const registerToken = tokens[i];
+                            if (registerToken.length === 2 && registerToken[0] === 'V') {
+                                const register = parseInt(registerToken[1], 16);
+                                if (register > 16 || register < 0) {
+                                    throw new Error('Invalid register: ' + register);
+                                }
+                                // Success skip to next token
+                                i++;
+                                continue;
+                            }
+                            else {
+                                // No match, skip to next parseTree
+                                break;
+                            }
+                        } else if (tokenType === 'nn') {
+                            const nn = parseInt(tokens[i], 16);
+                            if (nn > 0xFF || nn < 0 || isNaN(nn)) {
+                                // No match, skip to next parseTree
+                                break;
+                            }
+                            // Success skip to next token
+                            i++;
+                            continue;
+                        } else if (tokenType === 'nnn') {
+                            const nnn = parseInt(tokens[i], 16);
+                            if (nnn > 0xFFF || nnn < 0 || isNaN(nnn)) {
+                                // No match, skip to next parseTree
+                                break;
+                            }
+                            // Success skip to next token
+                            i++;
+                            continue;
+                        }
+                        else {
+                            // Token type is a literal
+                            if (tokens[i] !== tokenType) {
+                                // No match, skip to next parseTree
+                                break;
+                            }
+                            // Success skip to next token
+                            i++;
+                            continue;
+                        }
+                    }
+
+                    // We hit a match on this parseTree, set the opcode continue on building the opcode
+                    if(i > parseTree.length){
+                        opcode = parseInt(opcodeKey);
+                        break;
+                    }
+                }
+            }
+        }
+        else {
+            // Naive lookup that works for most tokens
+            opcode = this.opcodeLookup[tokens[0]] || 0x0000;
+        }
         return opcode;
     }
 
-    params(opcode: Uint8, tokens: string[]): Uint8 {
-        const paramLookup: { [key: string]: Uint8[] } = {
-            'JMP': [new Uint8(parseInt(tokens[1], 16))],
-            'CALL': [new Uint8(parseInt(tokens[1], 16))],
-            'SE': [new RegisterIndex(parseInt(tokens[1], 16)), new Uint8(parseInt(tokens[2], 16))],
-            'SNE': [new RegisterIndex(parseInt(tokens[1], 16)), new Uint8(parseInt(tokens[2], 16))],
-            'LD': [new RegisterIndex(parseInt(tokens[1], 16)), new Uint8(parseInt(tokens[2], 16))],
-            'ADD': [new RegisterIndex(parseInt(tokens[1], 16)), new RegisterIndex(parseInt(tokens[2], 16))],
-            'OR': [new RegisterIndex(parseInt(tokens[1], 16)), new RegisterIndex(parseInt(tokens[2], 16))],
-            'AND': [new RegisterIndex(parseInt(tokens[1], 16)), new RegisterIndex(parseInt(tokens[2], 16))],
-            'XOR': [new RegisterIndex(parseInt(tokens[1], 16)), new RegisterIndex(parseInt(tokens[2], 16))],
-            'SUB': [new RegisterIndex(parseInt(tokens[1], 16)), new RegisterIndex(parseInt(tokens[2], 16))],
-            'SHR': [new RegisterIndex(parseInt(tokens[1], 16)), new RegisterIndex(parseInt(tokens[2], 16))],
-            'SUBN': [new Uint8(parseInt(tokens[1], 16)), new Uint8(parseInt(tokens[2], 16))],
-            'SHL': [new Uint8(parseInt(tokens[1], 16)), new Uint8(parseInt(tokens[2], 16))],
-            'RND': [new Uint8(parseInt(tokens[1], 16)), new Uint8(parseInt(tokens[2], 16))],
-            'DRW': [new Uint8(parseInt(tokens[1], 16)), new Uint8(parseInt(tokens[2], 16)), new Uint8(parseInt(tokens[3], 16))],
-            'SKP': [new Uint8(parseInt(tokens[1], 16))],
-            'SKNP': [new Uint8(parseInt(tokens[1], 16))],
-            'LD_I': [new Uint8(parseInt(tokens[1], 16))],
-            'LD_DT': [new Uint8(parseInt(tokens[1], 16))],
-            'LD_K': [new Uint8(parseInt(tokens[1], 16))],
-            'LD_ST': [new Uint8(parseInt(tokens[1], 16))],
-            'ADD_I': [new Uint8(parseInt(tokens[1], 16))],
-            'LD_F': [new Uint8(parseInt(tokens[1], 16))],
-            'LD_B': [new Uint8(parseInt(tokens[1], 16))],
-            'LD_Ix': [new Uint8(parseInt(tokens[1], 16))],
-            'LD_xI': [new Uint8(parseInt(tokens[1], 16))],
+    params(opcode: number, tokens: string[]): number {
+        const paramLookup: { [key: number]: string[] } = {
+            0x1000: ['nnn'],
+            0xB000: ['ignore', 'nnn'],
+            0x00E0: [],
+            0x00EE: [],
+            0x2000: ['nnn'],
+            0x3000: ['register', 'nn'],
+            0x5000: ['register', 'register']
         };
 
-        const params = paramLookup[tokens[0]] || [];
+        const paramTypes = paramLookup[opcode] || [];
 
-        if(params.length === 1){
-            opcode = opcode.or(params[0]);
+        let params: number[] = [];
+        for (let i = 0; i < paramTypes.length; i++) {
+            if (paramTypes[i] === 'ignore') {
+                continue;
+            }
+            if (paramTypes[i] === 'nnn') {
+                let nnn = parseInt(tokens[i + 1], 16);
+                nnn = nnn & 0x0FFF;
+                params.push(nnn);
+            }
+            if (paramTypes[i] === 'nn') {
+                let nn = parseInt(tokens[i + 1], 16);
+                nn = nn & 0x00FF;
+                params.push(nn);
+            }
+            else if (paramTypes[i] === 'register') {
+                let registerToken = tokens[i + 1];
+
+                if (registerToken.length === 2 && registerToken[0] === 'V') {
+                    let register = parseInt(registerToken[1], 16);
+                    if (register > 16 || register < 0) {
+                        throw new Error('Invalid register: ' + register);
+                    }
+
+                    switch (i) {
+                        case 0:
+                            register = register << 8;
+                            break;
+                        case 1:
+                            register = register << 4;
+                            break;
+                    }
+
+                    params.push(register);
+                }
+            }
         }
-        else if(params.length === 2){
-            opcode = opcode.or(params[0].or(params[1]));
+
+        if (paramTypes.length === 1) {
+            opcode = opcode | params[0];
+        }
+        else if (paramTypes.length === 2) {
+            opcode = opcode | params[0] | params[1];
         }
         else if(params.length === 3){
-            opcode = opcode.or(params[0].or(params[1].or(params[2])));
+            opcode = opcode | params[0] | params[1] | params[2];
         }
 
         return opcode;
@@ -89,7 +169,7 @@ class Chip8Assembler {
         return tokens;
     }
 
-    parseOpcode(command: string): Uint8 {
+    parseOpcode(command: string): number {
         let tokens = this.tokenize(command);
         let opcode = this.opcode(tokens);
         let compiledOpcode = this.params(opcode, tokens);
@@ -97,9 +177,9 @@ class Chip8Assembler {
         return compiledOpcode;
     }
 
-    parseProgram(program: string): Uint8[] {
+    parseProgram(program: string): number[] {
         let commands = program.split('\n');
-        let parsedProgram = new Array<Uint8>();
+        let parsedProgram = new Array<number>();
         commands.forEach(command => {
             parsedProgram.push(this.parseOpcode(command));
         });

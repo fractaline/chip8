@@ -42,4 +42,10 @@ describe('Chasm', () => {
         const opcode = assembler.parseOpcode('SE V3 2');
         expect(opcode).toBe(0x3302);
     });
+
+    it('should assemble the se vx nn command correctly', () => {
+        const assembler = new Chip8Assembler();
+        const opcode = assembler.parseOpcode('SE VF 33');
+        expect(opcode).toBe(0x3F33);
+    });
 });

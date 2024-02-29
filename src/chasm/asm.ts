@@ -6,8 +6,13 @@ export default class Chip8Assembler {
         const parseTrees: { [key: string]: { [key: number]: string[] } } = {
             'SE': { 0x5000: ['register', 'register'], 0x3000: ['register', 'nn'] },
             'SNE': { 0x4000: ['register', 'nn'], 0x9000: ['register', 'register'] },
-            // 'LD': {0x6000 :['register', 'nn'], ['register', 'register'], ['I', 'register'], ['DT', 'register'], ['ST', 'register'], ['F', 'register'], ['B', 'register'], ['I', 'register'], ['xI', 'register'], ['Ix', 'register'], ['I', 'nnn'], ['I', 'register']},
-            'ADD': { 0x7004: ['register', 'nn'], 0x8004: ['register', 'nn'], 0xF01E: ['I', 'register'] },
+            'LD': {
+                0x8000: ['register', 'register'], 0x6000: ['register', 'nn'], 0xA000: ['I', 'nnn'],
+                0xF007: ['register', 'DT'], 0xF00A: ['register', 'K'], 0xF015: ['DT', 'register'],
+                0xF018: ['ST', 'register'], 0xF029: ['F', 'register'], 0xF033: ['B', 'register'],
+                0xF055: ['I', 'register'], 0xF065: ['register', 'I']
+            },
+            'ADD': { 0x7004: ['register', 'nn'], 0x8004: ['register', 'register'], 0xF01E: ['I', 'register'] },
             'JMP': { 0x1000: ['nnn'], 0xB000: ['V0', 'nnn'] },
             'CLS': { 0x00E0: [] },
             'RET': { 0x00EE: [] },
@@ -67,6 +72,7 @@ export default class Chip8Assembler {
                         if (nn > 0xFF || nn < 0 || isNaN(nn)) {
                             break;
                         }
+                        // Success skip to next token
                         nn = nn & 0x00FF;
                         params.push(nn);
                         i++;
@@ -87,7 +93,6 @@ export default class Chip8Assembler {
                         if (tokens[i] !== tokenType) {
                             break;
                         }
-                        // Success skip to next token
                         i++;
                         continue;
                     }
@@ -98,7 +103,7 @@ export default class Chip8Assembler {
                     opcode = parseInt(opcodeKey);
 
                     // Apply any params to the opcode
-                    for (let n = 0; n < params.length; n++) {
+                    for (let n = 0; n <= params.length; n++) {
                         opcode = opcode | params[n];
                     }
 
